@@ -1,0 +1,8 @@
+# MeltTrafego - Dependências
+# Python 3.6+ requerido
+
+# Para interface gráfica (opcional)
+PyQt5>=5.15
+
+# Para captura no Windows (opcional)
+# pypcap>=1.3.0  # Descomente se usar captura avançada no Windows
