@@ -1,6 +1,6 @@
 # 🌐 MeltTrafego
 
-**Sistema Avançado de Análise e Monitoramento de Tráfego de Rede**
+**Sistema de Análise e Monitoramento de Tráfego de Rede**
 
 [![Python](https://img.shields.io/badge/Python-3.6%2B-blue)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-green)](https://github.com)
@@ -54,19 +54,17 @@
 
 ```
 MeltTrafego/
-│
-├── melt_cli.py                 # Interface CLI multiplataforma
-├── melt_gui.py                 # Interface GUI multiplataforma  
-├── melt_core.py                 # Núcleo do sistema
-├── melt_platform.py             # Adaptações por plataforma
-├── config.py                    # Configurações
-├── requirements.txt             # Dependências
-├── install.sh                   # Instalador Linux
-├── install.bat                  # Instalador Windows
-├── README.md                    # Documentação
-│
-├── assets/                      # Recursos
-└── logs/                        # Logs do sistema
+├── relatorios/           # TUDO AQUI - capturas e relatórios
+├── assets/               # Recursos da GUI
+├── melt_core.py          # Núcleo do sistema
+├── melt_cli.py           # Interface linha de comando
+├── melt_gui.py           # Interface gráfica
+├── config.py             # Configurações
+├── requirements.txt      # Dependências
+├── install.bat           # Instalador Windows
+├── install.sh            # Instalador Linux
+├── melt_captura.sh       # Script auxiliar Linux
+└── README.md             # Documentação
 ```
 
 ## 🚀 Instalação Rápida
@@ -83,6 +81,8 @@ MeltTrafego/
 git clone https://github.com/seu-usuario/melttrafego.git
 cd melttrafego
 
+# Dê permissão de execução ao script no linux
+chmod +x install.sh
 # Execute o instalador
 ./install.sh
 # ou no Windows
@@ -103,7 +103,7 @@ pip install -r requirements.txt
 
 ### 🖥️ Interface Gráfica (Recomendado para Iniciantes)
 ```bash
-python melt_gui.py
+python3 melt_gui.py
 ```
 
 #### Fluxo de trabalho:
@@ -112,6 +112,11 @@ python melt_gui.py
 - **📊 Análise → Configure parâmetros e analise**  
 - **📈 Resultados → Veja estatísticas e alertas**  
 - **💾 Exporte → Salve relatórios em CSV/JSON**  
+
+### ⌨️ Modo Cli Interativo
+```bash
+python3 melt_cli.py --interativo
+```
 
 ### ⌨️ Linha de Comando (Para Automação)
 

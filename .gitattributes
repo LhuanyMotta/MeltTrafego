@@ -1,0 +1,24 @@
+# Scripts Linux/macOS devem ser LF
+*.sh text eol=lf
+
+# Scripts Windows devem ser CRLF
+*.bat text eol=crlf
+
+# Código Python → sempre LF
+*.py text eol=lf
+
+# Markdown, configs e texto → LF
+*.md text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+
+# Garante auto detecção para outros arquivos de texto
+* text=auto
+
+# Scripts executáveis - SEMPRE manter permissões
+install.sh text eol=lf executable
+melt_cli.py text eol=lf executable
+
+# Garantir que scripts shell mantenham permissões
+*.sh text eol=lf executable

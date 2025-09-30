@@ -1,244 +1,210 @@
 #!/usr/bin/env python3
 """
-MeltTrafego - Interface de Linha de Comando Multiplataforma
+MeltTrafego - Analisador de Tráfego Linux (Sem necessidade de sudo)
 """
 
-import argparse
-import sys
 import os
-from datetime import datetime
-from melt_platform import MeltTrafegoCore
+import sys
+import time
+import platform
+
+# Adicionar ambiente virtual ao path
+venv_path = os.path.join(os.path.dirname(__file__), 'melt_venv')
+if os.path.exists(venv_path):
+    sys.path.insert(0, os.path.join(venv_path, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages'))
+
+# Tentar importar dependências
+try:
+    import psutil
+    import pandas as pd
+except ImportError as e:
+    print(f"❌ Erro: {e}")
+    print("💡 Execute: pip install psutil pandas")
+    sys.exit(1)
+
+# Scapy é opcional
+try:
+    from scapy.all import *
+    from scapy.layers.inet import IP, TCP, UDP, ICMP
+    SCAPY_AVAILABLE = True
+except ImportError:
+    SCAPY_AVAILABLE = False
+    print("⚠️  Scapy não disponível. Modo de demonstração ativado.")
+
+class MeltTrafegoCLI:
+    def __init__(self):
+        self.dados_captura = []
+        self.scapy_disponivel = SCAPY_AVAILABLE
+        
+    def cabecalho(self):
+        print("\n" + "="*50)
+        print("🚀  MELTTRÁFEGO - ANALISADOR DE REDE LINUX")
+        print("🔒  Versão sem necessidade de sudo")
+        print("="*50)
+        
+        if not self.scapy_disponivel:
+            print("🎭  MODO DEMONSTRAÇÃO ATIVADO")
+            print("💡  Para captura real: pip install scapy")
+    
+    def menu_principal(self):
+        """Menu principal simplificado"""
+        while True:
+            self.cabecalho()
+            print("\n1️⃣  Listar interfaces de rede")
+            print("2️⃣  Monitorar tráfego (modo demo)")
+            print("3️⃣  Estatísticas do sistema")
+            print("4️⃣  Verificar dependências")
+            print("5️⃣  Sair")
+            
+            opcao = input("\n📋 Escolha uma opção (1-5): ").strip()
+            
+            if opcao == "1":
+                self.listar_interfaces()
+            elif opcao == "2":
+                self.monitorar_demo()
+            elif opcao == "3":
+                self.estatisticas_sistema()
+            elif opcao == "4":
+                self.verificar_dependencias()
+            elif opcao == "5":
+                print("\n👋 Saindo...")
+                break
+            else:
+                print("\n❌ Opção inválida!")
+                time.sleep(1)
+    
+    def listar_interfaces(self):
+        """Lista interfaces de rede"""
+        print("\n📡 INTERFACES DE REDE:\n")
+        try:
+            interfaces = psutil.net_if_addrs()
+            for interface, addrs in interfaces.items():
+                print(f"🔹 {interface}:")
+                for addr in addrs:
+                    if addr.family == 2:  # IPv4
+                        print(f"   📍 IPv4: {addr.address}")
+                    elif addr.family == 10:  # IPv6
+                        print(f"   📍 IPv6: {addr.address}")
+                print()
+        except Exception as e:
+            print(f"❌ Erro: {e}")
+        
+        input("📝 Enter para continuar...")
+    
+    def monitorar_demo(self):
+        """Monitoramento com dados de demonstração"""
+        print("\n🎭 INICIANDO MODO DEMONSTRAÇÃO (30s)")
+        print("📦 Gerando tráfego de exemplo...\n")
+        
+        import random
+        from datetime import datetime
+        
+        contadores = {'total': 0, 'tcp': 0, 'udp': 0}
+        inicio = time.time()
+        
+        try:
+            while time.time() - inicio < 30:
+                # Gerar pacote fake
+                tipos = ['TCP', 'UDP', 'ICMP']
+                tipo = random.choice(tipos)
+                contadores['total'] += 1
+                contadores[tipo.lower()] += 1
+                
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                print(f"{timestamp} | {tipo} | 192.168.1.{random.randint(1,100)} → 8.8.8.8 | {random.randint(64,1500)}B")
+                
+                time.sleep(0.5)
+                
+        except KeyboardInterrupt:
+            print("\n⏹️  Interrompido pelo usuário")
+        
+        print(f"\n📊 RESUMO:")
+        print(f"   📦 Total: {contadores['total']} pacotes")
+        print(f"   🔗 TCP: {contadores['tcp']}")
+        print(f"   📨 UDP: {contadores['udp']}")
+        print(f"   🎭 Modo demonstração")
+        
+        input("\n📝 Enter para continuar...")
+    
+    def estatisticas_sistema(self):
+        """Mostra estatísticas do sistema"""
+        print("\n💻 ESTATÍSTICAS DO SISTEMA:\n")
+        
+        try:
+            # Rede
+            io = psutil.net_io_counters()
+            print(f"📡 REDE:")
+            print(f"   ↑ Enviados: {io.bytes_sent:,} bytes")
+            print(f"   ↓ Recebidos: {io.bytes_recv:,} bytes")
+            
+            # Memória
+            mem = psutil.virtual_memory()
+            print(f"\n💾 MEMÓRIA: {mem.percent}%")
+            print(f"   Usada: {mem.used//1024//1024}MB")
+            print(f"   Total: {mem.total//1024//1024}MB")
+            
+            # CPU
+            cpu = psutil.cpu_percent(interval=1)
+            print(f"\n⚡ CPU: {cpu}%")
+            
+            # Load average
+            load = os.getloadavg()
+            print(f"📊 Load: {load[0]:.2f}, {load[1]:.2f}, {load[2]:.2f}")
+            
+        except Exception as e:
+            print(f"❌ Erro: {e}")
+        
+        input("\n📝 Enter para continuar...")
+    
+    def verificar_dependencias(self):
+        """Verifica dependências instaladas"""
+        print("\n📦 VERIFICAÇÃO DE DEPENDÊNCIAS:\n")
+        
+        dependencias = {
+            'psutil': False,
+            'pandas': False,
+            'scapy': False
+        }
+        
+        try:
+            import psutil
+            dependencias['psutil'] = True
+        except ImportError:
+            pass
+            
+        try:
+            import pandas
+            dependencias['pandas'] = True
+        except ImportError:
+            pass
+            
+        try:
+            import scapy
+            dependencias['scapy'] = True
+        except ImportError:
+            pass
+        
+        for dep, status in dependencias.items():
+            print(f"   {dep}: {'✅' if status else '❌'}")
+        
+        print(f"\n🔧 Scapy: {'Captura real disponível' if dependencias['scapy'] else 'Modo demonstração'}")
+        
+        input("\n📝 Enter para continuar...")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='MeltTrafego - Análise de Tráfego de Rede Multiplataforma',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f'''
-Exemplos:
-  {sys.argv[0]} capturar -i eth0 -t 30
-  {sys.argv[0]} analisar trafego.txt -o relatorio.csv
-  {sys.argv[0]} completo -i any -t 60 --formato json
-  {sys.argv[0]} interfaces
-  {sys.argv[0]} status
-        '''
-    )
+    """Função principal"""
+    if platform.system() != "Linux":
+        print("❌ Este software foi desenvolvido para Linux")
+        return
     
-    subparsers = parser.add_subparsers(dest='comando', help='Comando a executar')
+    # Verificar se não está sendo executado como root
+    if os.geteuid() == 0:
+        print("❌ Não execute como root/sudo!")
+        print("💡 Execute como usuário normal")
+        return
     
-    # Parser para captura
-    captura_parser = subparsers.add_parser('capturar', help='Capturar tráfego de rede')
-    captura_parser.add_argument('-i', '--interface', default='any', help='Interface de rede')
-    captura_parser.add_argument('-t', '--tempo', type=int, default=60, help='Tempo de captura em segundos')
-    captura_parser.add_argument('-o', '--output', help='Arquivo de saída')
-    
-    # Parser para análise
-    analise_parser = subparsers.add_parser('analisar', help='Analisar arquivo de tráfego')
-    analise_parser.add_argument('arquivo', help='Arquivo de tráfego para analisar')
-    analise_parser.add_argument('-o', '--output', help='Arquivo de saída')
-    analise_parser.add_argument('-f', '--formato', choices=['csv', 'json'], default='csv', help='Formato do relatório')
-    analise_parser.add_argument('--janela-tempo', type=int, default=60, help='Janela temporal para análise')
-    analise_parser.add_argument('--limite-portas', type=int, default=10, help='Limite de portas para detecção')
-    
-    # Parser para modo completo
-    completo_parser = subparsers.add_parser('completo', help='Capturar e analisar automaticamente')
-    completo_parser.add_argument('-i', '--interface', default='any', help='Interface de rede')
-    completo_parser.add_argument('-t', '--tempo', type=int, default=60, help='Tempo de captura em segundos')
-    completo_parser.add_argument('-o', '--output', help='Arquivo de saída')
-    completo_parser.add_argument('-f', '--formato', choices=['csv', 'json'], default='csv', help='Formato do relatório')
-    
-    # Parser para listar interfaces
-    subparsers.add_parser('interfaces', help='Listar interfaces de rede disponíveis')
-    
-    # Parser para status do sistema
-    subparsers.add_parser('status', help='Verificar status e dependências do sistema')
-    
-    args = parser.parse_args()
-    
-    if not args.comando:
-        parser.print_help()
-        sys.exit(1)
-    
-    # Inicializar núcleo
-    melt = MeltTrafegoCore()
-    
-    try:
-        if args.comando == 'capturar':
-            print("🔍 MeltTrafego - Iniciando captura...")
-            print(f"📡 Plataforma: {melt.sistema}")
-            print(f"🔧 Interface: {args.interface}")
-            print(f"⏱️  Tempo: {args.tempo} segundos")
-            
-            arquivo, sucesso, mensagem = melt.capturar_trafego(
-                args.interface, 
-                args.tempo, 
-                args.output
-            )
-            
-            if sucesso:
-                print(f"✅ {mensagem}")
-                print(f"📁 Arquivo: {arquivo}")
-            else:
-                print(f"❌ {mensagem}")
-                sys.exit(1)
-                
-        elif args.comando == 'analisar':
-            print(f"📊 MeltTrafego - Analisando {args.arquivo}...")
-            print(f"📡 Plataforma: {melt.sistema}")
-            
-            # Configurar parâmetros
-            melt.janela_tempo = args.janela_tempo
-            melt.limite_portas = args.limite_portas
-            
-            # Parsear e analisar
-            eventos, stats = melt.parse_trafego(args.arquivo)
-            
-            if stats.get('erro'):
-                print(f"❌ {stats['erro']}")
-                sys.exit(1)
-                
-            if not eventos:
-                print(f"❌ Nenhum evento válido encontrado em {args.arquivo}")
-                sys.exit(1)
-            
-            print(f"✅ {stats['linhas_processadas']} eventos processados")
-            print(f"🌐 {stats['total_ips']} IPs únicos encontrados")
-            print(f"🔢 {stats['total_portas']} portas únicas detectadas")
-            
-            contagem_total, port_scans, portas_por_ip, alertas = melt.analisar_comportamento(eventos)
-            
-            # Gerar relatório
-            if not args.output:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                args.output = f"relatorio_melt_{timestamp}.{args.formato}"
-            
-            if args.formato == 'csv':
-                sucesso, mensagem = melt.gerar_relatorio_csv(contagem_total, port_scans, portas_por_ip, args.output)
-            else:
-                dados = {
-                    'contagem_total': contagem_total,
-                    'port_scans': port_scans,
-                    'portas_por_ip': portas_por_ip
-                }
-                sucesso, mensagem = melt.gerar_relatorio_json(dados, args.output)
-            
-            if not sucesso:
-                print(f"❌ {mensagem}")
-                sys.exit(1)
-            
-            # Estatísticas
-            stats_finais = melt.obter_estatisticas(eventos, contagem_total, port_scans)
-            
-            print(f"\n📈 RELATÓRIO FINAL:")
-            print(f"📄 {mensagem}")
-            print(f"🔢 Total de eventos: {stats_finais['total_eventos']}")
-            print(f"🌐 IPs analisados: {stats_finais['total_ips']}")
-            print(f"⚠️  Port scans detectados: {stats_finais['port_scans_detectados']}")
-            print(f"✅ IPs normais: {stats_finais['ips_normais']}")
-            
-            if alertas:
-                print(f"\n🚨 ALERTAS DETECTADOS:")
-                for alerta in alertas:
-                    print(f"   • {alerta['ip']}: {alerta['mensagem']}")
-                    
-        elif args.comando == 'completo':
-            print("🚀 MeltTrafego - Modo Completo (Captura + Análise)")
-            print(f"📡 Plataforma: {melt.sistema}")
-            
-            # Capturar
-            arquivo_captura, sucesso, mensagem = melt.capturar_trafego(
-                args.interface, 
-                args.tempo
-            )
-            
-            if not sucesso:
-                print(f"❌ {mensagem}")
-                sys.exit(1)
-            
-            print(f"✅ {mensagem}")
-            print(f"📁 Captura: {arquivo_captura}")
-            
-            # Analisar
-            eventos, stats = melt.parse_trafego(arquivo_captura)
-            
-            if stats.get('erro'):
-                print(f"❌ {stats['erro']}")
-                sys.exit(1)
-                
-            if not eventos:
-                print("❌ Nenhum evento válido capturado")
-                sys.exit(1)
-            
-            contagem_total, port_scans, portas_por_ip, alertas = melt.analisar_comportamento(eventos)
-            
-            # Gerar relatório
-            if not args.output:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                args.output = f"relatorio_completo_{timestamp}.{args.formato}"
-            
-            if args.formato == 'csv':
-                sucesso, mensagem = melt.gerar_relatorio_csv(contagem_total, port_scans, portas_por_ip, args.output)
-            else:
-                dados = {
-                    'contagem_total': contagem_total,
-                    'port_scans': port_scans,
-                    'portas_por_ip': portas_por_ip
-                }
-                sucesso, mensagem = melt.gerar_relatorio_json(dados, args.output)
-            
-            if not sucesso:
-                print(f"❌ {mensagem}")
-                sys.exit(1)
-            
-            # Resultados
-            stats_finais = melt.obter_estatisticas(eventos, contagem_total, port_scans)
-            
-            print(f"\n🎯 PROCESSO CONCLUÍDO:")
-            print(f"📁 Captura: {arquivo_captura}")
-            print(f"📊 {mensagem}")
-            print(f"📈 Estatísticas: {stats_finais['total_eventos']} eventos, {stats_finais['port_scans_detectados']} alertas")
-            
-        elif args.comando == 'interfaces':
-            print("🔍 MeltTrafego - Interfaces de Rede Disponíveis")
-            print(f"📡 Plataforma: {melt.sistema}")
-            print("\n" + "="*50)
-            
-            interfaces = melt.listar_interfaces()
-            for interface in interfaces:
-                print(f"📡 {interface['nome']} - {interface['descricao']}")
-                
-            print(f"\n💡 Use: {sys.argv[0]} capturar -i NOME_DA_INTERFACE")
-            
-        elif args.comando == 'status':
-            print("🔍 MeltTrafego - Status do Sistema")
-            print("="*50)
-            
-            # Informações da plataforma
-            plataforma = melt.detectar_plataforma()
-            print(f"🖥️  Sistema: {plataforma['sistema']}")
-            print(f"🏗️  Arquitetura: {plataforma['arquitetura']}")
-            print(f"🐍 Python: {plataforma['python_version']}")
-            
-            # Dependências
-            dependencias = melt.verificar_dependencias()
-            print(f"\n📦 Dependências:")
-            print(f"   tcpdump: {'✅ Disponível' if dependencias['tcpdump'] else '❌ Não encontrado'}")
-            print(f"   Python: ✅ Disponível")
-            
-            if not dependencias['tcpdump']:
-                print(f"\n💡 Recomendações:")
-                if melt.sistema == "Windows":
-                    print("   • Instale o Npcap: https://npcap.com/#download")
-                    print("   • Execute como Administrador para captura real")
-                else:
-                    print("   • Instale tcpdump: sudo apt install tcpdump")
-                    print("   • Configure permissões: sudo usermod -aG wireshark $USER")
-                    
-    except KeyboardInterrupt:
-        print("\n⏹️  Operação interrompida pelo usuário")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Erro inesperado: {e}")
-        sys.exit(1)
+    app = MeltTrafegoCLI()
+    app.menu_principal()
 
 if __name__ == "__main__":
     main()

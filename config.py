@@ -1,5 +1,5 @@
 """
-MeltTrafego - Configurações do Sistema Multiplataforma
+MeltTrafego - Configurações do Sistema Linux
 """
 
 import platform
@@ -9,13 +9,9 @@ JANELA_TEMPO = 60
 LIMITE_PORTAS = 10
 TEMPO_CAPTURA_PADRAO = 60
 
-# Configurações por Plataforma
-if platform.system() == "Windows":
-    INTERFACE_PADRAO = "0"  # Primeira interface no Windows
-    TCPDUMP_PATH = "tcpdump"  # Assume que está no PATH
-else:
-    INTERFACE_PADRAO = "any"  # Todas as interfaces no Linux/macOS
-    TCPDUMP_PATH = "tcpdump"
+# Configurações para Linux
+INTERFACE_PADRAO = "any"
+TCPDUMP_PATH = "/usr/sbin/tcpdump"
 
 # Arquivos
 LOG_FILE = "logs/melt_trafego.log"
@@ -32,7 +28,11 @@ CORES = {
 
 # Configurações de Rede
 IGNORAR_IPS = [
-    "127.0.0.1",           # Localhost
-    "0.0.0.0",             # Endereço indefinido
-    "255.255.255.255"      # Broadcast
+    "127.0.0.1",
+    "0.0.0.0",
+    "255.255.255.255"
 ]
+
+# Configurações específicas Linux
+PERMISSOES_CAPTURA = True
+REQUER_SUDO = False

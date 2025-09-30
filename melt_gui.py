@@ -1,38 +1,189 @@
 #!/usr/bin/env python3
 """
-MeltTrafego - Interface Gráfica
+MeltTrafego - Interface Gráfica Linux (Sem necessidade de sudo)
 """
 
 import sys
 import os
-import threading
+import platform
 from datetime import datetime
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QPushButton, QTextEdit, QLabel, 
-                             QLineEdit, QComboBox, QProgressBar, QTabWidget,
-                             QTableWidget, QTableWidgetItem, QHeaderView,
-                             QGroupBox, QSpinBox, QFileDialog, QMessageBox,
-                             QSplitter, QListWidget, QListWidgetItem)
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal
-from PyQt5.QtGui import QFont, QPalette, QColor, QIcon
 
-from melt_core import MeltTrafegoCore
+# Adicionar o ambiente virtual ao path
+venv_path = os.path.join(os.path.dirname(__file__), 'melt_venv')
+if os.path.exists(venv_path):
+    sys.path.insert(0, os.path.join(venv_path, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages'))
+
+try:
+    from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                                QHBoxLayout, QPushButton, QLabel, QTextEdit, 
+                                QComboBox, QSpinBox, QProgressBar, QTabWidget,
+                                QGroupBox, QListWidget, QListWidgetItem, QMessageBox,
+                                QSplitter, QFrame)
+    from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal
+    from PyQt5.QtGui import QFont, QColor
+except ImportError as e:
+    print(f"❌ Erro: PyQt5 não encontrado: {e}")
+    print("💡 Execute: pip install PyQt5")
+    sys.exit(1)
+
+try:
+    import psutil
+    import pandas as pd
+except ImportError as e:
+    print(f"❌ Erro: Dependências não encontradas: {e}")
+    print("💡 Execute: pip install psutil pandas")
+    sys.exit(1)
+
+# Tentar importar scapy, mas continuar mesmo se falhar
+try:
+    from scapy.all import *
+    from scapy.layers.inet import IP, TCP, UDP, ICMP
+    SCAPY_AVAILABLE = True
+except ImportError:
+    SCAPY_AVAILABLE = False
+    print("⚠️  Scapy não disponível. Modo de demonstração ativado.")
+
+class CapturaThread(QThread):
+    """Thread para captura de pacotes em background"""
+    pacote_capturado = pyqtSignal(dict)
+    captura_finalizada = pyqtSignal(list)
+    erro_captura = pyqtSignal(str)
+    status_captura = pyqtSignal(str)
+    
+    def __init__(self, interface, duracao):
+        super().__init__()
+        self.interface = interface
+        self.duracao = duracao
+        self.pacotes = []
+        self.capturando = False
+        
+    def run(self):
+        """Executa a captura"""
+        if not SCAPY_AVAILABLE:
+            self.erro_captura.emit(
+                "Scapy não disponível. Modo de demonstração ativado.\n"
+                "Gerando dados de exemplo..."
+            )
+            self.gerar_dados_exemplo()
+            return
+            
+        self.capturando = True
+        self.pacotes = []
+        
+        try:
+            # Testar permissões primeiro
+            self.status_captura.emit("🔍 Testando permissões de captura...")
+            
+            # Tentar captura simples
+            filter_str = "ip or ip6"
+            
+            if self.interface and self.interface != "any":
+                sniff(prn=self.processar_pacote, timeout=self.duracao, 
+                      iface=self.interface, filter=filter_str, store=False)
+            else:
+                sniff(prn=self.processar_pacote, timeout=self.duracao, 
+                      filter=filter_str, store=False)
+                
+            self.capturando = False
+            self.captura_finalizada.emit(self.pacotes)
+            
+        except PermissionError as e:
+            self.capturando = False
+            self.erro_captura.emit(
+                "🔒 Erro de permissão.\n\n"
+                "Soluções:\n"
+                "1. Execute: sudo setcap cap_net_raw,cap_net_admin=eip $(which python3)\n"
+                "2. Ou adicione seu usuário ao grupo pcap: sudo usermod -a -G pcap $USER\n"
+                "3. Faça logout e login novamente\n\n"
+                "Ativando modo de demonstração..."
+            )
+            self.gerar_dados_exemplo()
+        except Exception as e:
+            self.capturando = False
+            self.erro_captura.emit(f"Erro na captura: {str(e)}\nAtivando modo de demonstração...")
+            self.gerar_dados_exemplo()
+    
+    def processar_pacote(self, pacote):
+        """Processa cada pacote capturado"""
+        if not self.capturando:
+            return
+            
+        info = {
+            'timestamp': datetime.now(),
+            'tamanho': len(pacote)
+        }
+        
+        if pacote.haslayer(IP):
+            info['ip_origem'] = pacote[IP].src
+            info['ip_destino'] = pacote[IP].dst
+            info['protocolo'] = pacote[IP].proto
+            
+            if pacote.haslayer(TCP):
+                info['porta_origem'] = pacote[TCP].sport
+                info['porta_destino'] = pacote[TCP].dport
+                info['tipo'] = 'TCP'
+            elif pacote.haslayer(UDP):
+                info['porta_origem'] = pacote[UDP].sport
+                info['porta_destino'] = pacote[UDP].dport
+                info['tipo'] = 'UDP'
+            elif pacote.haslayer(ICMP):
+                info['tipo'] = 'ICMP'
+            else:
+                info['tipo'] = 'Outro'
+        else:
+            info['tipo'] = 'Não-IP'
+        
+        self.pacotes.append(info)
+        self.pacote_capturado.emit(info)
+    
+    def gerar_dados_exemplo(self):
+        """Gera dados de exemplo quando a captura real não está disponível"""
+        import random
+        import time
+        
+        self.status_captura.emit("🎭 Gerando dados de demonstração...")
+        
+        ips_origem = ["192.168.1.100", "192.168.1.101", "10.0.0.15", "203.0.113.45"]
+        ips_destino = ["8.8.8.8", "1.1.1.1", "192.168.1.1", "142.251.32.110"]
+        tipos = ["TCP", "UDP", "ICMP"]
+        
+        for i in range(50):
+            if not self.capturando:
+                break
+                
+            info = {
+                'timestamp': datetime.now(),
+                'tamanho': random.randint(64, 1500),
+                'ip_origem': random.choice(ips_origem),
+                'ip_destino': random.choice(ips_destino),
+                'tipo': random.choice(tipos),
+                'porta_origem': random.randint(1024, 65535),
+                'porta_destino': random.choice([80, 443, 53, 22, 3389]),
+                'demo': True  # Marcar como dados de demonstração
+            }
+            
+            self.pacotes.append(info)
+            self.pacote_capturado.emit(info)
+            
+            # Pequena pausa para simular tráfego real
+            time.sleep(0.1)
+        
+        self.capturando = False
+        self.captura_finalizada.emit(self.pacotes)
 
 class MeltTrafegoGUI(QMainWindow):
-    update_log = pyqtSignal(str)
-    update_progress = pyqtSignal(int)
-    analysis_complete = pyqtSignal(dict)
+    """Interface gráfica principal do MeltTrafego"""
     
     def __init__(self):
         super().__init__()
-        self.melt = MeltTrafegoCore()
         self.captura_thread = None
-        self.analise_thread = None
+        self.dados_captura = []
         self.init_ui()
         
     def init_ui(self):
-        self.setWindowTitle("MeltTrafego - Analisador de Tráfego de Rede")
-        self.setGeometry(100, 100, 1200, 800)
+        """Inicializa a interface do usuário"""
+        self.setWindowTitle("🚀 MeltTrafego - Analisador de Tráfego (Sem Sudo)")
+        self.setGeometry(100, 100, 1000, 700)
         
         # Widget central
         central_widget = QWidget()
@@ -41,435 +192,298 @@ class MeltTrafegoGUI(QMainWindow):
         # Layout principal
         layout = QVBoxLayout(central_widget)
         
-        # Barra de título
-        title_label = QLabel("🌐 MeltTrafego - Sistema de Análise de Tráfego")
-        title_label.setFont(QFont("Arial", 16, QFont.Bold))
-        layout.addWidget(title_label)
+        # Título
+        titulo = QLabel("🌐 MeltTrafego - Analisador de Tráfego de Rede")
+        titulo.setFont(QFont("Arial", 16, QFont.Bold))
+        layout.addWidget(titulo)
         
-        # Abas
-        tabs = QTabWidget()
-        layout.addWidget(tabs)
+        # Subtítulo
+        subtitulo = QLabel("🔒 Funciona sem sudo - Modo de demonstração disponível")
+        subtitulo.setStyleSheet("color: #666; font-size: 12px;")
+        layout.addWidget(subtitulo)
         
-        # Aba 1: Captura
-        tab_captura = QWidget()
-        tabs.addTab(tab_captura, "🎯 Captura")
-        self.setup_captura_tab(tab_captura)
+        # Divisor
+        linha = QFrame()
+        linha.setFrameShape(QFrame.HLine)
+        linha.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(linha)
         
-        # Aba 2: Análise
-        tab_analise = QWidget()
-        tabs.addTab(tab_analise, "📊 Análise")
-        self.setup_analise_tab(tab_analise)
+        # Controles de captura
+        self.criar_controles_captura(layout)
         
-        # Aba 3: Resultados
-        tab_resultados = QWidget()
-        tabs.addTab(tab_resultados, "📈 Resultados")
-        self.setup_resultados_tab(tab_resultados)
+        # Área de abas
+        self.criar_abas_principal(layout)
         
-        # Área de log
-        log_group = QGroupBox("📝 Log do Sistema")
-        log_layout = QVBoxLayout()
-        self.log_text = QTextEdit()
-        self.log_text.setMaximumHeight(150)
-        self.log_text.setReadOnly(True)
-        log_layout.addWidget(self.log_text)
-        log_group.setLayout(log_layout)
-        layout.addWidget(log_group)
+        # Barra de status
+        self.criar_barra_status(layout)
         
-        # Barra de progresso
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar)
+        # Verificar se scapy está disponível
+        if not SCAPY_AVAILABLE:
+            self.mostrar_aviso("Scapy não encontrado. Modo de demonstração ativado.")
         
-        # Conectar sinais
-        self.update_log.connect(self.add_log)
-        self.update_progress.connect(self.progress_bar.setValue)
-        self.analysis_complete.connect(self.on_analysis_complete)
-        
-        self.log("Sistema MeltTrafego inicializado")
-        
-    def setup_captura_tab(self, parent):
-        layout = QVBoxLayout(parent)
-        
-        # Configurações de captura
-        config_group = QGroupBox("⚙️ Configurações de Captura")
-        config_layout = QVBoxLayout()
+    def criar_controles_captura(self, layout):
+        """Cria os controles de captura"""
+        grupo = QGroupBox("🎯 Controles de Captura")
+        layout_controles = QHBoxLayout()
         
         # Interface
-        interface_layout = QHBoxLayout()
-        interface_layout.addWidget(QLabel("Interface:"))
-        self.interface_combo = QComboBox()
-        self.interface_combo.addItems(["any", "eth0", "wlan0", "enp0s3", "ens33"])
-        self.interface_combo.setEditable(True)
-        interface_layout.addWidget(self.interface_combo)
-        interface_layout.addStretch()
-        config_layout.addLayout(interface_layout)
+        layout_controles.addWidget(QLabel("📡 Interface:"))
+        self.combo_interface = QComboBox()
+        self.combo_interface.addItems(["any", "eth0", "wlan0", "lo"])
+        layout_controles.addWidget(self.combo_interface)
         
         # Tempo
-        tempo_layout = QHBoxLayout()
-        tempo_layout.addWidget(QLabel("Tempo (segundos):"))
-        self.tempo_spin = QSpinBox()
-        self.tempo_spin.setRange(10, 3600)
-        self.tempo_spin.setValue(60)
-        tempo_layout.addWidget(self.tempo_spin)
-        tempo_layout.addStretch()
-        config_layout.addLayout(tempo_layout)
+        layout_controles.addWidget(QLabel("⏰ Tempo (s):"))
+        self.spin_tempo = QSpinBox()
+        self.spin_tempo.setRange(5, 300)
+        self.spin_tempo.setValue(30)
+        layout_controles.addWidget(self.spin_tempo)
         
-        config_group.setLayout(config_layout)
-        layout.addWidget(config_group)
+        # Botões
+        self.btn_capturar = QPushButton("🎬 Iniciar Captura")
+        self.btn_capturar.clicked.connect(self.iniciar_captura)
+        self.btn_capturar.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        layout_controles.addWidget(self.btn_capturar)
         
-        # Botões de ação
-        button_layout = QHBoxLayout()
+        self.btn_parar = QPushButton("⏹️ Parar")
+        self.btn_parar.clicked.connect(self.parar_captura)
+        self.btn_parar.setEnabled(False)
+        self.btn_parar.setStyleSheet("background-color: #f44336; color: white;")
+        layout_controles.addWidget(self.btn_parar)
         
-        self.capturar_btn = QPushButton("🎯 Iniciar Captura")
-        self.capturar_btn.clicked.connect(self.iniciar_captura)
-        self.capturar_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }")
-        button_layout.addWidget(self.capturar_btn)
+        layout_controles.addStretch()
+        grupo.setLayout(layout_controles)
+        layout.addWidget(grupo)
+    
+    def criar_abas_principal(self, layout):
+        """Cria as abas principais"""
+        self.tabs = QTabWidget()
         
-        self.parar_btn = QPushButton("⏹️ Parar Captura")
-        self.parar_btn.clicked.connect(self.parar_captura)
-        self.parar_btn.setEnabled(False)
-        self.parar_btn.setStyleSheet("QPushButton { background-color: #f44336; color: white; }")
-        button_layout.addWidget(self.parar_btn)
+        # Aba 1: Tempo Real
+        aba1 = QWidget()
+        layout1 = QVBoxLayout(aba1)
         
-        layout.addLayout(button_layout)
-        layout.addStretch()
+        # Área de logs
+        grupo_logs = QGroupBox("📊 Tráfego em Tempo Real")
+        layout_logs = QVBoxLayout()
         
-    def setup_analise_tab(self, parent):
-        layout = QVBoxLayout(parent)
+        self.texto_logs = QTextEdit()
+        self.texto_logs.setFont(QFont("Monospace", 9))
+        layout_logs.addWidget(self.texto_logs)
         
-        # Seleção de arquivo
-        file_group = QGroupBox("📁 Arquivo de Tráfego")
-        file_layout = QVBoxLayout()
+        # Contadores
+        layout_contadores = QHBoxLayout()
+        self.label_pacotes = QLabel("📦 Pacotes: 0")
+        self.label_tcp = QLabel("🔗 TCP: 0")
+        self.label_udp = QLabel("📨 UDP: 0")
+        self.label_taxa = QLabel("⚡ Taxa: 0 B/s")
         
-        file_select_layout = QHBoxLayout()
-        self.arquivo_edit = QLineEdit()
-        self.arquivo_edit.setPlaceholderText("Selecione um arquivo de tráfego...")
-        file_select_layout.addWidget(self.arquivo_edit)
+        for label in [self.label_pacotes, self.label_tcp, self.label_udp, self.label_taxa]:
+            layout_contadores.addWidget(label)
         
-        browse_btn = QPushButton("Procurar...")
-        browse_btn.clicked.connect(self.selecionar_arquivo)
-        file_select_layout.addWidget(browse_btn)
+        layout_contadores.addStretch()
+        layout_logs.addLayout(layout_contadores)
+        grupo_logs.setLayout(layout_logs)
+        layout1.addWidget(grupo_logs)
         
-        file_layout.addLayout(file_select_layout)
-        file_group.setLayout(file_layout)
-        layout.addWidget(file_group)
+        self.tabs.addTab(aba1, "🎯 Tempo Real")
         
-        # Configurações de análise
-        analise_config_group = QGroupBox("🔧 Configurações de Análise")
-        analise_config_layout = QVBoxLayout()
+        # Aba 2: Estatísticas
+        aba2 = QWidget()
+        layout2 = QVBoxLayout(aba2)
         
-        # Janela temporal
-        janela_layout = QHBoxLayout()
-        janela_layout.addWidget(QLabel("Janela temporal (s):"))
-        self.janela_spin = QSpinBox()
-        self.janela_spin.setRange(10, 300)
-        self.janela_spin.setValue(60)
-        janela_layout.addWidget(self.janela_spin)
-        janela_layout.addStretch()
-        analise_config_layout.addLayout(janela_layout)
+        self.texto_estatisticas = QTextEdit()
+        self.texto_estatisticas.setFont(QFont("Monospace", 10))
+        layout2.addWidget(self.texto_estatisticas)
         
-        # Limite de portas
-        portas_layout = QHBoxLayout()
-        portas_layout.addWidget(QLabel("Limite de portas:"))
-        self.portas_spin = QSpinBox()
-        self.portas_spin.setRange(1, 100)
-        self.portas_spin.setValue(10)
-        portas_layout.addWidget(self.portas_spin)
-        portas_layout.addStretch()
-        analise_config_layout.addLayout(portas_layout)
+        self.tabs.addTab(aba2, "📊 Estatísticas")
         
-        analise_config_group.setLayout(analise_config_layout)
-        layout.addWidget(analise_config_group)
+        layout.addWidget(self.tabs)
         
-        # Botão de análise
-        self.analisar_btn = QPushButton("📊 Analisar Tráfego")
-        self.analisar_btn.clicked.connect(self.iniciar_analise)
-        self.analisar_btn.setStyleSheet("QPushButton { background-color: #2196F3; color: white; font-weight: bold; }")
-        layout.addWidget(self.analisar_btn)
+        # Inicializar contadores
+        self.contadores = {'total': 0, 'tcp': 0, 'udp': 0, 'icmp': 0}
+        self.bytes_total = 0
+    
+    def criar_barra_status(self, layout):
+        """Cria a barra de status"""
+        grupo = QGroupBox("📊 Status")
+        layout_status = QHBoxLayout()
         
-        layout.addStretch()
+        self.label_status = QLabel("🟢 Pronto para capturar")
+        self.barra_progresso = QProgressBar()
+        self.barra_progresso.setVisible(False)
         
-    def setup_resultados_tab(self, parent):
-        layout = QVBoxLayout(parent)
+        layout_status.addWidget(self.label_status)
+        layout_status.addWidget(self.barra_progresso)
+        layout_status.addStretch()
         
-        splitter = QSplitter(Qt.Vertical)
+        # Indicador de modo
+        modo = "🔓 Normal" if SCAPY_AVAILABLE else "🎭 Demonstração"
+        self.label_modo = QLabel(f"Modo: {modo}")
+        layout_status.addWidget(self.label_modo)
         
-        # Estatísticas
-        stats_group = QGroupBox("📈 Estatísticas")
-        stats_layout = QVBoxLayout()
-        self.stats_text = QTextEdit()
-        self.stats_text.setReadOnly(True)
-        self.stats_text.setMaximumHeight(150)
-        stats_layout.addWidget(self.stats_text)
-        stats_group.setLayout(stats_layout)
-        splitter.addWidget(stats_group)
-        
-        # Tabela de resultados
-        table_group = QGroupBox("📋 Resultados Detalhados")
-        table_layout = QVBoxLayout()
-        self.resultados_table = QTableWidget()
-        self.resultados_table.setColumnCount(5)
-        self.resultados_table.setHorizontalHeaderLabels([
-            "IP", "Total Eventos", "Portas Únicas", "Port Scan", "Severidade"
-        ])
-        table_layout.addWidget(self.resultados_table)
-        table_group.setLayout(table_layout)
-        splitter.addWidget(table_group)
-        
-        # Alertas - CORREÇÃO AQUI: criar layout próprio para alertas_group
-        alertas_group = QGroupBox("🚨 Alertas")
-        alertas_layout = QVBoxLayout()
-        self.alertas_list = QListWidget()
-        alertas_layout.addWidget(self.alertas_list)
-        alertas_group.setLayout(alertas_layout)  # CORREÇÃO: usar alertas_group
-        splitter.addWidget(alertas_group)
-        
-        layout.addWidget(splitter)
-        
-        # Botões de exportação
-        export_layout = QHBoxLayout()
-        
-        self.export_csv_btn = QPushButton("💾 Exportar CSV")
-        self.export_csv_btn.clicked.connect(self.exportar_csv)
-        self.export_csv_btn.setEnabled(False)
-        export_layout.addWidget(self.export_csv_btn)
-        
-        self.export_json_btn = QPushButton("💾 Exportar JSON")
-        self.export_json_btn.clicked.connect(self.exportar_json)
-        self.export_json_btn.setEnabled(False)
-        export_layout.addWidget(self.export_json_btn)
-        
-        layout.addLayout(export_layout)
-        
-    def log(self, mensagem):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.append(f"[{timestamp}] {mensagem}")
-        
-    def add_log(self, mensagem):
-        self.log(mensagem)
-        
+        grupo.setLayout(layout_status)
+        layout.addWidget(grupo)
+    
     def iniciar_captura(self):
-        interface = self.interface_combo.currentText()
-        tempo = self.tempo_spin.value()
+        """Inicia a captura de pacotes"""
+        interface = self.combo_interface.currentText()
+        tempo = self.spin_tempo.value()
         
-        self.log(f"Iniciando captura na interface {interface} por {tempo} segundos...")
+        # Limpar dados anteriores
+        self.dados_captura = []
+        self.contadores = {'total': 0, 'tcp': 0, 'udp': 0, 'icmp': 0}
+        self.bytes_total = 0
+        self.texto_logs.clear()
         
-        self.capturar_btn.setEnabled(False)
-        self.parar_btn.setEnabled(True)
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, tempo)
+        # Iniciar thread de captura
+        self.captura_thread = CapturaThread(interface, tempo)
+        self.captura_thread.pacote_capturado.connect(self.adicionar_pacote)
+        self.captura_thread.captura_finalizada.connect(self.captura_concluida)
+        self.captura_thread.erro_captura.connect(self.mostrar_erro)
+        self.captura_thread.status_captura.connect(self.label_status.setText)
         
-        # Executar captura em thread separada
-        self.captura_thread = threading.Thread(
-            target=self.executar_captura,
-            args=(interface, tempo)
-        )
         self.captura_thread.start()
         
-        # Atualizar progresso
-        self.progress_timer = QTimer()
-        self.progress_timer.timeout.connect(self.atualizar_progresso)
-        self.progress_timer.start(1000)
-        self.progress_counter = 0
+        # Atualizar UI
+        self.btn_capturar.setEnabled(False)
+        self.btn_parar.setEnabled(True)
+        self.barra_progresso.setVisible(True)
+        self.barra_progresso.setMaximum(tempo)
+        self.barra_progresso.setValue(0)
         
-    def executar_captura(self, interface, tempo):
-        arquivo, sucesso, mensagem = self.melt.capturar_trafego(interface, tempo)
+        # Timer para progresso
+        self.timer_progresso = QTimer()
+        self.timer_progresso.timeout.connect(self.atualizar_progresso)
+        self.timer_progresso.start(1000)
         
-        self.update_log.emit(mensagem)
-        if sucesso:
-            self.update_log.emit(f"Captura salva em: {arquivo}")
-            self.arquivo_edit.setText(arquivo)
-        else:
-            self.update_log.emit("❌ Falha na captura")
-            
-        self.captura_completa = True
-        
-    def atualizar_progresso(self):
-        self.progress_counter += 1
-        self.update_progress.emit(self.progress_counter)
-        
-        if self.progress_counter >= self.tempo_spin.value():
-            self.progress_timer.stop()
-            self.capturar_btn.setEnabled(True)
-            self.parar_btn.setEnabled(False)
-            self.progress_bar.setVisible(False)
-            
+        self.tempo_inicio = datetime.now()
+    
     def parar_captura(self):
-        # Implementar parada da captura
-        self.log("Captura interrompida pelo usuário")
-        self.capturar_btn.setEnabled(True)
-        self.parar_btn.setEnabled(False)
-        self.progress_bar.setVisible(False)
-        if hasattr(self, 'progress_timer'):
-            self.progress_timer.stop()
+        """Para a captura"""
+        if self.captura_thread and self.captura_thread.isRunning():
+            self.captura_thread.capturando = False
+            self.captura_thread.terminate()
+            self.captura_thread.wait()
+        
+        self.captura_concluida(self.dados_captura)
+    
+    def atualizar_progresso(self):
+        """Atualiza a barra de progresso"""
+        if hasattr(self, 'tempo_inicio'):
+            tempo_decorrido = (datetime.now() - self.tempo_inicio).seconds
+            self.barra_progresso.setValue(tempo_decorrido)
             
-    def selecionar_arquivo(self):
-        arquivo, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Selecionar arquivo de tráfego",
-            "",
-            "Arquivos de texto (*.txt);;Todos os arquivos (*)"
-        )
-        if arquivo:
-            self.arquivo_edit.setText(arquivo)
-            
-    def iniciar_analise(self):
-        arquivo = self.arquivo_edit.text()
-        if not arquivo or not os.path.exists(arquivo):
-            QMessageBox.warning(self, "Erro", "Selecione um arquivo válido para análise")
+            if tempo_decorrido >= self.spin_tempo.value():
+                self.timer_progresso.stop()
+    
+    def adicionar_pacote(self, info):
+        """Adiciona um pacote à interface"""
+        self.dados_captura.append(info)
+        
+        # Atualizar contadores
+        self.contadores['total'] += 1
+        tipo = info.get('tipo', '').lower()
+        if tipo in self.contadores:
+            self.contadores[tipo] += 1
+        
+        self.bytes_total += info['tamanho']
+        
+        # Adicionar ao log
+        timestamp = info['timestamp'].strftime('%H:%M:%S')
+        demo = "🎭 " if info.get('demo') else ""
+        linha = f"{demo}{timestamp} | {info['tipo']} | {info.get('ip_origem', 'N/A')} → {info.get('ip_destino', 'N/A')} | {info['tamanho']}B"
+        self.texto_logs.append(linha)
+        
+        # Atualizar labels
+        self.atualizar_contadores()
+    
+    def atualizar_contadores(self):
+        """Atualiza os contadores na interface"""
+        self.label_pacotes.setText(f"📦 Pacotes: {self.contadores['total']}")
+        self.label_tcp.setText(f"🔗 TCP: {self.contadores['tcp']}")
+        self.label_udp.setText(f"📨 UDP: {self.contadores['udp']}")
+        
+        tempo_decorrido = (datetime.now() - self.tempo_inicio).seconds
+        if tempo_decorrido > 0:
+            taxa = self.bytes_total / tempo_decorrido
+            self.label_taxa.setText(f"⚡ Taxa: {taxa:.0f} B/s")
+    
+    def captura_concluida(self, dados):
+        """Callback quando a captura termina"""
+        self.btn_capturar.setEnabled(True)
+        self.btn_parar.setEnabled(False)
+        self.barra_progresso.setVisible(False)
+        self.label_status.setText("✅ Captura concluída")
+        
+        if self.timer_progresso and self.timer_progresso.isActive():
+            self.timer_progresso.stop()
+        
+        # Gerar estatísticas
+        self.gerar_estatisticas()
+        
+        # Mostrar resumo
+        modo = "demonstração" if any(d.get('demo') for d in dados) else "real"
+        QMessageBox.information(self, "Captura Concluída", 
+                               f"✅ Captura finalizada ({modo})!\n"
+                               f"📦 Pacotes: {len(dados)}\n"
+                               f"📊 Bytes: {self.bytes_total}")
+    
+    def gerar_estatisticas(self):
+        """Gera estatísticas dos dados capturados"""
+        if not self.dados_captura:
+            self.texto_estatisticas.setText("Nenhum dado capturado.")
             return
-            
-        self.log(f"Iniciando análise do arquivo: {arquivo}")
         
-        # Configurar parâmetros
-        self.melt.janela_tempo = self.janela_spin.value()
-        self.melt.limite_portas = self.portas_spin.value()
+        df = pd.DataFrame(self.dados_captura)
         
-        self.analisar_btn.setEnabled(False)
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Progresso indeterminado
-        
-        # Executar análise em thread separada
-        self.analise_thread = threading.Thread(
-            target=self.executar_analise,
-            args=(arquivo,)
-        )
-        self.analise_thread.start()
-        
-    def executar_analise(self, arquivo):
-        try:
-            # Parsear
-            eventos, stats = self.melt.parse_trafego(arquivo)
-            self.update_log.emit(f"✅ {stats['linhas_processadas']} eventos processados")
-            
-            if not eventos:
-                self.update_log.emit("❌ Nenhum evento válido encontrado")
-                return
-                
-            # Analisar
-            contagem_total, port_scans, portas_por_ip, alertas = self.melt.analisar_comportamento(eventos)
-            
-            # Preparar resultados
-            resultados = {
-                'eventos': eventos,
-                'contagem_total': contagem_total,
-                'port_scans': port_scans,
-                'portas_por_ip': portas_por_ip,
-                'alertas': alertas,
-                'estatisticas': self.melt.obter_estatisticas(eventos, contagem_total, port_scans)
-            }
-            
-            self.analysis_complete.emit(resultados)
-            
-        except Exception as e:
-            self.update_log.emit(f"❌ Erro na análise: {e}")
-            
-    def on_analysis_complete(self, resultados):
-        self.analisar_btn.setEnabled(True)
-        self.progress_bar.setVisible(False)
-        
-        # Atualizar estatísticas
-        stats = resultados['estatisticas']
-        stats_text = f"""
-📊 ANÁLISE CONCLUÍDA - {stats['timestamp_analise']}
+        estatisticas = f"""📊 RELATÓRIO DE CAPTURA
 
-• Total de Eventos: {stats['total_eventos']}
-• IPs Analisados: {stats['total_ips']}
-• Port Scans Detectados: {stats['port_scans_detectados']} ⚠️
-• IPs Normais: {stats['ips_normais']} ✅
+📦 ESTATÍSTICAS:
+• Total de pacotes: {len(df)}
+• Total de bytes: {self.bytes_total}
+• TCP: {self.contadores['tcp']}
+• UDP: {self.contadores['udp']}
+• ICMP: {self.contadores['icmp']}
 
-🏆 IPs Mais Ativos:
-"""
-        for ip, count in stats['top_ips']:
-            status = "🚨 PORT SCAN" if resultados['port_scans'].get(ip, False) else "✅ Normal"
-            stats_text += f"  {ip}: {count} eventos - {status}\n"
-            
-        self.stats_text.setPlainText(stats_text)
-        
-        # Atualizar tabela
-        self.atualizar_tabela(resultados)
-        
-        # Atualizar alertas
-        self.atualizar_alertas(resultados['alertas'])
-        
-        # Habilitar exportação
-        self.export_csv_btn.setEnabled(True)
-        self.export_json_btn.setEnabled(True)
-        self.resultados = resultados
-        
-        self.log("Análise concluída com sucesso!")
-        
-    def atualizar_tabela(self, resultados):
-        self.resultados_table.setRowCount(len(resultados['contagem_total']))
-        
-        for row, (ip, total) in enumerate(resultados['contagem_total'].items()):
-            portas_unicas = len(resultados['portas_por_ip'].get(ip, set()))
-            port_scan = resultados['port_scans'].get(ip, False)
-            
-            self.resultados_table.setItem(row, 0, QTableWidgetItem(ip))
-            self.resultados_table.setItem(row, 1, QTableWidgetItem(str(total)))
-            self.resultados_table.setItem(row, 2, QTableWidgetItem(str(portas_unicas)))
-            self.resultados_table.setItem(row, 3, QTableWidgetItem("Sim" if port_scan else "Não"))
-            self.resultados_table.setItem(row, 4, QTableWidgetItem("ALTA" if port_scan else "BAIXA"))
-            
-        self.resultados_table.resizeColumnsToContents()
-        
-    def atualizar_alertas(self, alertas):
-        self.alertas_list.clear()
-        
-        for alerta in alertas:
-            item = QListWidgetItem(f"🚨 {alerta['ip']} - {alerta['mensagem']}")
-            if alerta['severidade'] == 'ALTA':
-                item.setBackground(QColor(255, 200, 200))
-            self.alertas_list.addItem(item)
-            
-    def exportar_csv(self):
-        arquivo, _ = QFileDialog.getSaveFileName(
-            self,
-            "Exportar relatório CSV",
-            f"relatorio_melt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            "Arquivos CSV (*.csv)"
-        )
-        
-        if arquivo:
-            self.melt.gerar_relatorio_csv(
-                self.resultados['contagem_total'],
-                self.resultados['port_scans'],
-                self.resultados['portas_por_ip'],
-                arquivo
-            )
-            self.log(f"Relatório CSV exportado: {arquivo}")
-            
-    def exportar_json(self):
-        arquivo, _ = QFileDialog.getSaveFileName(
-            self,
-            "Exportar relatório JSON",
-            f"relatorio_melt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            "Arquivos JSON (*.json)"
-        )
-        
-        if arquivo:
-            dados = {
-                'contagem_total': self.resultados['contagem_total'],
-                'port_scans': self.resultados['port_scans'],
-                'portas_por_ip': self.resultados['portas_por_ip']
-            }
-            self.melt.gerar_relatorio_json(dados, arquivo)
-            self.log(f"Relatório JSON exportado: {arquivo}")
+🌐 INFORMAÇÕES:"""
+
+        if any(d.get('demo') for d in self.dados_captura):
+            estatisticas += "\n• 🎭 MODO DEMONSTRAÇÃO - Dados de exemplo"
+        else:
+            estatisticas += "\n• 🔓 MODO REAL - Captura ao vivo"
+
+        if 'ip_origem' in df.columns:
+            top_ips = df['ip_origem'].value_counts().head(3)
+            estatisticas += "\n\n🔝 TOP IPs:"
+            for ip, count in top_ips.items():
+                estatisticas += f"\n• {ip}: {count} pacotes"
+
+        self.texto_estatisticas.setText(estatisticas)
+    
+    def mostrar_aviso(self, mensagem):
+        """Mostra um aviso"""
+        QMessageBox.warning(self, "Aviso", mensagem)
+    
+    def mostrar_erro(self, mensagem):
+        """Mostra uma mensagem de erro"""
+        QMessageBox.critical(self, "Erro", mensagem)
+        self.label_status.setText(f"❌ {mensagem[:30]}...")
 
 def main():
+    """Função principal"""
+    # Verificar se estamos no Linux
+    if platform.system() != "Linux":
+        print("❌ Esta aplicação foi desenvolvida para Linux")
+        sys.exit(1)
+    
     app = QApplication(sys.argv)
     app.setApplicationName("MeltTrafego")
-    app.setApplicationVersion("1.0")
     
-    # Verificar se PyQt5 está disponível
-    try:
-        window = MeltTrafegoGUI()
-        window.show()
-        sys.exit(app.exec_())
-    except ImportError:
-        print("❌ PyQt5 não encontrado. Instale com: pip install PyQt5")
-        sys.exit(1)
+    janela = MeltTrafegoGUI()
+    janela.show()
+    
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
