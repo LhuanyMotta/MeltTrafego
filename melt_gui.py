@@ -217,7 +217,7 @@ class MeltTrafegoGUI(QMainWindow):
         
     def init_ui(self):
         """Inicializa a interface do usuário"""
-        titulo = "🚀 MeltTrafego - Analisador de Tráfego"
+        titulo = "MeltTrafego - Analisador de Tráfego"
         if self.sistema == "Windows":
             titulo += " Windows"
         else:

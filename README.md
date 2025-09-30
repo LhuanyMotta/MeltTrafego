@@ -6,12 +6,6 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-green)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-<div align="center">
-
-![MeltTrafego Demo](https://via.placeholder.com/800x400/2C3E50/FFFFFF?text=MeltTrafego+Network+Analysis)
-
-</div>
-
 ## 📋 Índice
 
 - [✨ Funcionalidades](#-funcionalidades)
@@ -22,14 +16,13 @@
 - [📊 Exemplos de Uso](#-exemplos-de-uso)
 - [🔧 Configuração](#-configuração)
 - [🐛 Solução de Problemas](#-solução-de-problemas)
-- [🤝 Contribuindo](#-contribuindo)
 - [📄 Licença](#-licença)
 
 ## ✨ Funcionalidades
 
 ### 🔍 **Captura de Tráfego**
 - ✅ Captura em tempo real em múltiplas interfaces  
-- ✅ Suporte a Windows (WinPcap) e Linux (tcpdump)  
+- ✅ Suporte a Windows (Npcap) e Linux (tcpdump)  
 - ✅ Filtros IP personalizáveis  
 - ✅ Progresso visual em tempo real  
 
@@ -54,17 +47,17 @@
 
 ```
 MeltTrafego/
-├── relatorios/           # TUDO AQUI - capturas e relatórios
-├── assets/               # Recursos da GUI
-├── melt_core.py          # Núcleo do sistema
-├── melt_cli.py           # Interface linha de comando
-├── melt_gui.py           # Interface gráfica
-├── config.py             # Configurações
-├── requirements.txt      # Dependências
-├── install.bat           # Instalador Windows
-├── install.sh            # Instalador Linux
-├── melt_captura.sh       # Script auxiliar Linux
-└── README.md             # Documentação
+├── relatorios/ # Diretório central para capturas e relatórios
+├── assets/ # Recursos da GUI
+├── melt_core.py # Núcleo do sistema
+├── melt_cli.py # Interface linha de comando
+├── melt_gui.py # Interface gráfica
+├── config.py # Configurações
+├── requirements.txt # Dependências
+├── setup.py # Configuração do ambiente Python
+├── install.bat # Instalador Windows
+├── install.sh # Instalador Linux
+└── README.md # Documentação
 ```
 
 ## 🚀 Instalação Rápida
@@ -81,12 +74,32 @@ MeltTrafego/
 git clone https://github.com/seu-usuario/melttrafego.git
 cd melttrafego
 
-# Dê permissão de execução ao script no linux
+# Linux
 chmod +x install.sh
-# Execute o instalador
 ./install.sh
-# ou no Windows
+
+# Windows
 install.bat
+```
+
+## 🐍 Rodando dentro do Ambiente Virtual (Linux)
+#### Após a instalação, você pode ativar o ambiente virtual manualmente:
+```bash
+# Ativar ambiente
+source melt_venv/bin/activate
+
+# Rodar interface gráfica
+python melt_gui.py
+
+# Rodar CLI interativo
+python melt_cli.py --interativo
+
+# Captura direta
+sudo python melt_cli.py capturar -i eth0 -t 60
+```
+#### Para sair do ambiente virtual:
+```bash
+deactivate
 ```
 
 ### 📦 Instalação Manual
@@ -107,7 +120,6 @@ python3 melt_gui.py
 ```
 
 #### Fluxo de trabalho:
-
 - **🎯 Captura → Selecione interface e tempo**  
 - **📊 Análise → Configure parâmetros e analise**  
 - **📈 Resultados → Veja estatísticas e alertas**  
@@ -184,9 +196,9 @@ pip install pypcap
 pip install python-pcap
 ```
 
-### 🔍 Configurações de Análise
+## 🔍 Configurações de Análise
 
-Edite `config.py` para personalizar:
+#### Edite `config.py` para personalizar:
 
 ```python
 # Janela temporal para detecção (segundos)
@@ -221,12 +233,12 @@ brew install tcpdump      # macOS
 ✅ Verifique se o Npcap está ativo  
 
 - **"Permissão negada" (Linux)**  
-Solução 1: Executar com sudo  
+#### Solução 1: Executar com sudo  
 ```bash
 sudo python melt_cli.py capturar
 ```
 
-Solução 2: Adicionar usuário ao grupo wireshark  
+#### Solução 2: Adicionar usuário ao grupo wireshark  
 ```bash
 sudo usermod -aG wireshark $USER
 # Faça logout e login novamente
