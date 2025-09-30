@@ -1,4 +1,4 @@
-scapy==2.5.0
-psutil==5.9.5
-pandas==2.0.3
-# Nota: PyQt5 é instalado separadamente (pode variar por plataforma/distribuição)
+scapy>=2.4.5
+psutil>=5.8.0
+pandas>=1.3.0
+PyQt5>=5.15.0
