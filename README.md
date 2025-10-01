@@ -77,34 +77,8 @@ cd melttrafego
 # Linux
 chmod +x install.sh
 ./install.sh
-
-# Se der erro de permissão, use:
-python3 setup.py
-sudo melt_venv/bin/python3 melt_gui.py
-sudo melt_venv/bin/python3 melt_cli.py --interativo
-
-# Windows
+# ou no Windows
 install.bat
-```
-
-## 🐍 Rodando dentro do Ambiente Virtual (Linux)
-#### Após a instalação, você pode ativar o ambiente virtual manualmente:
-```bash
-# Ativar ambiente
-source melt_venv/bin/activate
-
-# Rodar interface gráfica
-python3 melt_gui.py
-
-# Rodar CLI interativo
-python3 melt_cli.py --interativo
-
-# Captura direta
-sudo python3 melt_cli.py capturar -i eth0 -t 60
-```
-#### Para sair do ambiente virtual:
-```bash
-deactivate
 ```
 
 ### 📦 Instalação Manual
