@@ -9,13 +9,13 @@
 ## 📋 Índice
 
 - [✨ Funcionalidades](#-funcionalidades)
+- [📁 Estrutura do Projeto](#-estrutura-do-projeto)
 - [🚀 Instalação Rápida](#-instalação-rápida)
 - [🎯 Como Usar](#-como-usar)
-- [🖥️ Interface Gráfica](#️-interface-gráfica)
-- [⌨️ Linha de Comando](#️-linha-de-comando)
 - [📊 Exemplos de Uso](#-exemplos-de-uso)
 - [🔧 Configuração](#-configuração)
 - [🐛 Solução de Problemas](#-solução-de-problemas)
+- [📷 Imagens da Aplicação](#️-imagens-da-aplicação)
 - [📄 Licença](#-licença)
 
 ## ✨ Funcionalidades
