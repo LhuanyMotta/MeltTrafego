@@ -71,7 +71,7 @@ MeltTrafego/
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/melttrafego.git
+git clone https://github.com/LhuanyMotta/melttrafego.git
 cd melttrafego
 
 # Linux
