@@ -1,59 +1,50 @@
 @echo off
 chcp 65001 >nul
 echo 🔧 Instalando MeltTrafego no Windows...
-echo.
 
-:: Verificar Python
+cd /d "%~dp0"
+
+:: Verificar se Python está instalado
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Python não encontrado.
-    echo 📥 Instale Python 3.6+ em: https://python.org
-    echo 💡 Marque a opção "Add Python to PATH" durante a instalação
+    echo ❌ Python não encontrado. Instale o Python 3.6+ primeiro.
+    echo 📥 Download: https://python.org/downloads/
     pause
     exit /b 1
 )
 
-echo ✅ Python encontrado: 
-python --version
-
-:: Criar diretórios
-if not exist logs mkdir logs
-if not exist relatorios mkdir relatorios
-if not exist exemplos mkdir exemplos
-if not exist assets mkdir assets
-
-:: Instalar dependências Python
-echo 📦 Instalando dependências Python...
-pip install -r requirements.txt
-
-:: Verificar Npcap/tcpdump
-echo 🔍 Verificando Npcap...
-where tcpdump >nul 2>&1
+:: Verificar se pip está disponível
+pip --version >nul 2>&1
 if errorlevel 1 (
-    echo ⚠️  Npcap não encontrado ou tcpdump não está no PATH
-    echo.
-    echo 📥 RECOMENDAÇÕES:
-    echo   1. Baixe e instale o Npcap em: https://npcap.com/#download
-    echo   2. Marque a opção "Install Npcap in WinPcap API-compatible Mode"
-    echo   3. Execute como Administrador para captura real
-    echo.
-    echo 💡 Sem o Npcap, o sistema funcionará em modo demonstração
-) else (
-    echo ✅ tcpdump/Npcap encontrado
+    echo ❌ pip não encontrado. Reinstale o Python marcando "Add Python to PATH"
+    pause
+    exit /b 1
 )
 
+:: Verificar e avisar sobre Npcap
+echo 📦 Verificando Npcap...
+reg query "HKLM\SOFTWARE\Npcap" >nul 2>&1
+if errorlevel 1 (
+    echo ⚠️  Npcap não encontrado. É necessário para captura de pacotes.
+    echo 📥 Download: https://npcap.com/#download
+    echo 💡 Instale com opção "Install Npcap in WinPcap API-compatible Mode"
+    echo.
+)
+
+:: Criar diretórios necessários
+echo 📁 Criando estrutura de pastas...
+mkdir relatorios 2>nul
+mkdir assets 2>nul
+
+:: Rodar setup.py
+echo 🐍 Configurando ambiente Python...
+python setup.py
+
 echo.
-echo ✅ MeltTrafego instalado com sucesso!
+echo 🎉 INSTALAÇÃO CONCLUÍDA!
 echo.
 echo 🚀 COMO USAR:
-echo    Interface Gráfica: python melt_gui.py
-echo    Linha de Comando:  python melt_cli.py [comando]
+echo   - melt_gui.bat para interface gráfica
+echo   - melt_cli.bat para linha de comando interativa
 echo.
-echo 📖 EXEMPLOS:
-echo    python melt_cli.py status
-echo    python melt_cli.py interfaces
-echo    python melt_cli.py capturar -i 0 -t 30
-echo    python melt_cli.py analisar trafego.txt -o relatorio.csv
-echo.
-echo 💡 DICA: Execute como Administrador para captura de rede real
 pause

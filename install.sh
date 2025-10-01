@@ -1,64 +1,57 @@
 #!/bin/bash
 echo "🔧 Instalando MeltTrafego no Linux..."
-echo "📡 Plataforma: $(uname -s)"
-echo ""
 
-# Criar estrutura de diretórios
-mkdir -p logs relatorios exemplos assets
+cd "$(dirname "$0")"
 
 # Verificar Python
 if ! command -v python3 &> /dev/null; then
-    echo "❌ Python3 não encontrado. Instale com:"
-    echo "   sudo apt install python3 python3-pip"
-    exit 1
+    echo "❌ Python3 não encontrado. Instalando..."
+    sudo apt update && sudo apt install -y python3 python3-pip python3-venv
 fi
 
-echo "✅ Python3 encontrado: $(python3 --version)"
+# Criar pastas necessárias
+echo "📁 Criando estrutura de pastas..."
+mkdir -p relatorios assets
 
-# Verificar/instalar tcpdump
-if ! command -v tcpdump &> /dev/null; then
-    echo "📦 Instalando tcpdump..."
-    if command -v apt &> /dev/null; then
-        sudo apt update && sudo apt install -y tcpdump
-    elif command -v yum &> /dev/null; then
-        sudo yum install -y tcpdump
-    elif command -v dnf &> /dev/null; then
-        sudo dnf install -y tcpdump
-    elif command -v pacman &> /dev/null; then
-        sudo pacman -S tcpdump
-    else
-        echo "⚠️  Gerenciador de pacotes não reconhecido. Instale tcpdump manualmente."
-    fi
+# Detectar distribuição Linux
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO=$ID
 else
-    echo "✅ tcpdump encontrado: $(tcpdump --version 2>&1 | head -n1)"
+    DISTRO="unknown"
 fi
 
-# Instalar dependências Python
-echo "🐍 Instalando dependências Python..."
-pip3 install -r requirements.txt
+echo "💻 Distribuição detectada: $DISTRO"
 
-# Configurar permissões
-echo "🔐 Configurando permissões..."
-if getent group wireshark &>/dev/null; then
-    echo "💡 Dica: Adicione seu usuário ao grupo wireshark para captura sem sudo:"
-    echo "   sudo usermod -aG wireshark $USER"
-    echo "   ⚠️  Faça logout e login novamente após este comando"
-fi
+# Instalar dependências do sistema
+echo "📦 Instalando dependências do sistema..."
 
-# Tornar scripts executáveis
-chmod +x melt_cli.py melt_gui.py
+case $DISTRO in
+    ubuntu|debian)
+        sudo apt update
+        sudo apt install -y tcpdump wireshark-common libpcap-dev python3-dev
+        ;;
+    fedora|centos|rhel)
+        sudo dnf install -y tcpdump wireshark-cli libpcap-devel python3-devel
+        ;;
+    arch|manjaro)
+        sudo pacman -S --noconfirm tcpdump wireshark-qt libpcap python
+        ;;
+    opensuse)
+        sudo zypper install -y tcpdump wireshark libpcap-devel python3-devel
+        ;;
+    *)
+        echo "⚠️  Distribuição não reconhecida. Instale manualmente:"
+        echo "   tcpdump, wireshark-common, libpcap-dev"
+        ;;
+esac
+
+# Rodar setup.py
+echo "🐍 Configurando ambiente Python..."
+python3 setup.py
 
 echo ""
-echo "✅ MeltTrafego instalado com sucesso!"
-echo ""
-echo "🚀 COMO USAR:"
-echo "   Interface Gráfica: ./melt_gui.py"
-echo "   Linha de Comando:  ./melt_cli.py [comando]"
-echo ""
-echo "📖 EXEMPLOS:"
-echo "   ./melt_cli.py status"
-echo "   ./melt_cli.py interfaces" 
-echo "   ./melt_cli.py capturar -i eth0 -t 30"
-echo "   ./melt_cli.py analisar trafego.txt -o relatorio.csv"
-echo ""
-echo "💡 DICA: Para captura real, execute com sudo ou configure permissões"
+echo "🎉 INSTALAÇÃO CONCLUÍDA!"
+echo "   Ativar ambiente: source melt_venv/bin/activate"
+echo "   Interface gráfica: ./melt_gui.sh"
+echo "   Linha de comando: ./melt_cli.sh --interativo"

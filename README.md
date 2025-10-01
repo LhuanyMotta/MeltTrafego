@@ -1,16 +1,10 @@
 # 🌐 MeltTrafego
 
-**Sistema Avançado de Análise e Monitoramento de Tráfego de Rede**
+**Sistema de Análise e Monitoramento de Tráfego de Rede**
 
 [![Python](https://img.shields.io/badge/Python-3.6%2B-blue)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-green)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
-
-<div align="center">
-
-![MeltTrafego Demo](https://via.placeholder.com/800x400/2C3E50/FFFFFF?text=MeltTrafego+Network+Analysis)
-
-</div>
 
 ## 📋 Índice
 
@@ -22,14 +16,13 @@
 - [📊 Exemplos de Uso](#-exemplos-de-uso)
 - [🔧 Configuração](#-configuração)
 - [🐛 Solução de Problemas](#-solução-de-problemas)
-- [🤝 Contribuindo](#-contribuindo)
 - [📄 Licença](#-licença)
 
 ## ✨ Funcionalidades
 
 ### 🔍 **Captura de Tráfego**
 - ✅ Captura em tempo real em múltiplas interfaces  
-- ✅ Suporte a Windows (WinPcap) e Linux (tcpdump)  
+- ✅ Suporte a Windows (Npcap) e Linux (tcpdump)  
 - ✅ Filtros IP personalizáveis  
 - ✅ Progresso visual em tempo real  
 
@@ -54,19 +47,17 @@
 
 ```
 MeltTrafego/
-│
-├── melt_cli.py                 # Interface CLI multiplataforma
-├── melt_gui.py                 # Interface GUI multiplataforma  
-├── melt_core.py                 # Núcleo do sistema
-├── melt_platform.py             # Adaptações por plataforma
-├── config.py                    # Configurações
-├── requirements.txt             # Dependências
-├── install.sh                   # Instalador Linux
-├── install.bat                  # Instalador Windows
-├── README.md                    # Documentação
-│
-├── assets/                      # Recursos
-└── logs/                        # Logs do sistema
+├── relatorios/ # Diretório central para capturas e relatórios
+├── assets/ # Recursos da GUI
+├── melt_core.py # Núcleo do sistema
+├── melt_cli.py # Interface linha de comando
+├── melt_gui.py # Interface gráfica
+├── config.py # Configurações
+├── requirements.txt # Dependências
+├── setup.py # Configuração do ambiente Python
+├── install.bat # Instalador Windows
+├── install.sh # Instalador Linux
+└── README.md # Documentação
 ```
 
 ## 🚀 Instalação Rápida
@@ -83,10 +74,37 @@ MeltTrafego/
 git clone https://github.com/seu-usuario/melttrafego.git
 cd melttrafego
 
-# Execute o instalador
+# Linux
+chmod +x install.sh
 ./install.sh
-# ou no Windows
+
+# Se der erro de permissão, use:
+python3 setup.py
+sudo melt_venv/bin/python3 melt_gui.py
+sudo melt_venv/bin/python3 melt_cli.py --interativo
+
+# Windows
 install.bat
+```
+
+## 🐍 Rodando dentro do Ambiente Virtual (Linux)
+#### Após a instalação, você pode ativar o ambiente virtual manualmente:
+```bash
+# Ativar ambiente
+source melt_venv/bin/activate
+
+# Rodar interface gráfica
+python3 melt_gui.py
+
+# Rodar CLI interativo
+python3 melt_cli.py --interativo
+
+# Captura direta
+sudo python3 melt_cli.py capturar -i eth0 -t 60
+```
+#### Para sair do ambiente virtual:
+```bash
+deactivate
 ```
 
 ### 📦 Instalação Manual
@@ -103,15 +121,19 @@ pip install -r requirements.txt
 
 ### 🖥️ Interface Gráfica (Recomendado para Iniciantes)
 ```bash
-python melt_gui.py
+python3 melt_gui.py
 ```
 
 #### Fluxo de trabalho:
-
 - **🎯 Captura → Selecione interface e tempo**  
 - **📊 Análise → Configure parâmetros e analise**  
 - **📈 Resultados → Veja estatísticas e alertas**  
 - **💾 Exporte → Salve relatórios em CSV/JSON**  
+
+### ⌨️ Modo Cli Interativo
+```bash
+python3 melt_cli.py --interativo
+```
 
 ### ⌨️ Linha de Comando (Para Automação)
 
@@ -179,9 +201,9 @@ pip install pypcap
 pip install python-pcap
 ```
 
-### 🔍 Configurações de Análise
+## 🔍 Configurações de Análise
 
-Edite `config.py` para personalizar:
+#### Edite `config.py` para personalizar:
 
 ```python
 # Janela temporal para detecção (segundos)
@@ -216,12 +238,12 @@ brew install tcpdump      # macOS
 ✅ Verifique se o Npcap está ativo  
 
 - **"Permissão negada" (Linux)**  
-Solução 1: Executar com sudo  
+#### Solução 1: Executar com sudo  
 ```bash
 sudo python melt_cli.py capturar
 ```
 
-Solução 2: Adicionar usuário ao grupo wireshark  
+#### Solução 2: Adicionar usuário ao grupo wireshark  
 ```bash
 sudo usermod -aG wireshark $USER
 # Faça logout e login novamente
@@ -239,6 +261,23 @@ python melt_cli.py interfaces
 # Testar captura rápida
 python melt_cli.py capturar -t 5 -i any
 ```
+
+## 📷 Imagens da Aplicação
+
+> 💡 *Demonstrativo do MeltTrafego - Versão GUI*
+
+![Tela MeltTrafego1](imagens/MeltTrafego1.png)
+
+![Tela MeltTrafego2](imagens/MeltTrafego2.png)
+
+
+![Tela MeltTrafego3](imagens/MeltTrafego3.png)
+
+![Tela MeltTrafego4](imagens/MeltTrafego4.png)
+
+> 💡 *Demonstrativo do MeltTrafego - Versão CLI*
+
+![Tela MeltTrafego5](imagens/MeltTrafego5.png)
 
 ## 🙋‍♀️ Autoria
 
